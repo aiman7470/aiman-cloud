@@ -20,11 +20,11 @@ export async function verifyPassword(plain: string, hash: string): Promise<boole
 }
 
 export function signAccessToken(payload: AccessTokenPayload): string {
-  return jwt.sign(payload, ACCESS_SECRET, { expiresIn: ACCESS_TTL });
+  return jwt.sign(payload, ACCESS_SECRET, { expiresIn: ACCESS_TTL as jwt.SignOptions["expiresIn"] });
 }
 
 export function signRefreshToken(payload: AccessTokenPayload): string {
-  return jwt.sign(payload, REFRESH_SECRET, { expiresIn: REFRESH_TTL });
+  return jwt.sign(payload, REFRESH_SECRET, { expiresIn: REFRESH_TTL as jwt.SignOptions["expiresIn"] });
 }
 
 export function verifyAccessToken(token: string): AccessTokenPayload | null {
