@@ -1,0 +1,12 @@
+{
+  "name": "Aiman Cloud",
+  "short_name": "Aiman Cloud",
+  "description": "Your Private Digital Space",
+  "start_url": "/dashboard",
+  "display": "standalone",
+  "background_color": "#0B0F19",
+  "theme_color": "#0B0F19",
+  "icons": [
+    { "src": "/favicon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }
+  ]
+}

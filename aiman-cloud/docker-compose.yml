@@ -1,0 +1,53 @@
+version: "3.9"
+
+services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: aiman
+      POSTGRES_PASSWORD: aiman_password
+      POSTGRES_DB: aiman_cloud
+    volumes:
+      - aiman_db_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U aiman -d aiman_cloud"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    env_file:
+      - .env
+    environment:
+      DATABASE_URL: "postgresql://aiman:aiman_password@db:5432/aiman_cloud?schema=public"
+    volumes:
+      - aiman_uploads:/app/public/uploads
+    ports:
+      - "3000:3000"
+
+  nginx:
+    image: nginx:1.27-alpine
+    restart: unless-stopped
+    depends_on:
+      - app
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/conf.d/default.conf:ro
+      # Mount your TLS certs here for HTTPS, e.g.:
+      # - ./nginx/certs:/etc/nginx/certs:ro
+
+volumes:
+  aiman_db_data:
+  aiman_uploads:

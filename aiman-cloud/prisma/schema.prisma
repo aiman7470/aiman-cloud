@@ -1,0 +1,177 @@
+// Aiman Cloud — database schema
+// Single-user personal cloud storage, modelled to extend to multi-user later.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum FileCategory {
+  IMAGE
+  VIDEO
+  AUDIO
+  DOCUMENT
+  ARCHIVE
+  OTHER
+}
+
+model User {
+  id           String   @id @default(uuid())
+  name         String
+  email        String   @unique
+  passwordHash String
+  avatarUrl    String?
+  theme        String   @default("dark") // "dark" | "light"
+  language     String   @default("en")
+  timezone     String   @default("UTC")
+  storageQuota BigInt   @default(107374182400) // 100 GB default
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  folders      Folder[]
+  files        File[]
+  notes        Note[]
+  tags         Tag[]
+  sessions     Session[]
+  activityLogs ActivityLog[]
+  notifications Notification[]
+  settings     Setting?
+
+  @@index([email])
+}
+
+model Folder {
+  id        String   @id @default(uuid())
+  name      String
+  color     String   @default("#F5A623")
+  parentId  String?
+  parent    Folder?  @relation("FolderTree", fields: [parentId], references: [id], onDelete: Cascade)
+  children  Folder[] @relation("FolderTree")
+  ownerId   String
+  owner     User     @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  isTrashed Boolean  @default(false)
+  trashedAt DateTime?
+  isFavorite Boolean @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  files File[]
+
+  @@index([ownerId, parentId])
+  @@index([ownerId, isTrashed])
+}
+
+model File {
+  id           String       @id @default(uuid())
+  name         String
+  originalName String
+  mimeType     String
+  extension    String
+  category     FileCategory @default(OTHER)
+  size         BigInt
+  storageKey   String       // relative path on disk (or S3 object key)
+  checksum     String?      // sha256, used for duplicate detection
+  folderId     String?
+  folder       Folder?      @relation(fields: [folderId], references: [id], onDelete: SetNull)
+  ownerId      String
+  owner        User         @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  isFavorite   Boolean      @default(false)
+  isTrashed    Boolean      @default(false)
+  trashedAt    DateTime?
+  version      Int          @default(1)
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
+
+  tags Tag[] @relation("FileTags")
+
+  @@index([ownerId, folderId])
+  @@index([ownerId, isTrashed])
+  @@index([ownerId, isFavorite])
+  @@index([ownerId, category])
+  @@index([checksum])
+}
+
+model Note {
+  id         String   @id @default(uuid())
+  title      String
+  contentMd  String   @db.Text
+  isPinned   Boolean  @default(false)
+  isArchived Boolean  @default(false)
+  isTrashed  Boolean  @default(false)
+  trashedAt  DateTime?
+  ownerId    String
+  owner      User     @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  tags Tag[] @relation("NoteTags")
+
+  @@index([ownerId, isTrashed])
+  @@index([ownerId, isPinned])
+}
+
+model Tag {
+  id      String @id @default(uuid())
+  name    String
+  color   String @default("#34D3C9")
+  ownerId String
+  owner   User   @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+
+  files File[] @relation("FileTags")
+  notes Note[] @relation("NoteTags")
+
+  @@unique([ownerId, name])
+}
+
+model Session {
+  id           String   @id @default(uuid())
+  userId       String
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  refreshToken String   @unique
+  userAgent    String?
+  ipAddress    String?
+  createdAt    DateTime @default(now())
+  expiresAt    DateTime
+
+  @@index([userId])
+}
+
+model ActivityLog {
+  id        String   @id @default(uuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  action    String   // e.g. "file.upload", "auth.login", "folder.delete"
+  target    String?  // human-readable target name
+  metadata  Json?
+  ipAddress String?
+  createdAt DateTime @default(now())
+
+  @@index([userId, createdAt])
+}
+
+model Notification {
+  id        String   @id @default(uuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  title     String
+  message   String
+  type      String   @default("info") // info | success | warning | error
+  isRead    Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  @@index([userId, isRead])
+}
+
+model Setting {
+  id                 String  @id @default(uuid())
+  userId             String  @unique
+  user               User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  storageWarningPct  Int     @default(85)
+  autoBackupEnabled  Boolean @default(false)
+  twoFactorEnabled   Boolean @default(false)
+  twoFactorSecret    String?
+}
