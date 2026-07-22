@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { Suspense, useCallback, useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
   LayoutGrid,
@@ -19,7 +19,14 @@ import { useToast } from "@/components/toast-provider";
 import { cn } from "@/lib/utils";
 
 export default function FilesPage() {
-  const router = useRouter();
+return (
+    <Suspense fallback={null}>
+      <FilesPageInner />
+    </Suspense>
+  );
+}
+
+function FilesPageInner() {  const router = useRouter();
   const searchParams = useSearchParams();
   const folderId = searchParams.get("folderId") || null;
   const { push } = useToast();
