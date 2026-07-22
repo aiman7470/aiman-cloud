@@ -16,7 +16,7 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
     data: { userId: user.id, action: "file.download", target: file.name },
   });
 
-  return new NextResponse(buffer, {
+ return new NextResponse(new Uint8Array(buffer), {
     headers: {
       "Content-Type": file.mimeType || "application/octet-stream",
       "Content-Disposition": `inline; filename="${encodeURIComponent(file.name)}"`,
