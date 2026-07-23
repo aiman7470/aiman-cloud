@@ -19,7 +19,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
     <div className="flex min-h-screen">
       <Sidebar storageUsed={storageUsed} storageQuota={Number(user.storageQuota)} />
       <div className="flex min-h-screen flex-1 flex-col">
-        <Topbar user={{ name: user.name, email: user.email }} />
+        <Topbar user={{ name: user.name, email: user.email, hasAvatar: Boolean(user.avatarUrl) }} />
         <main className="flex-1 px-5 pb-24 pt-6 lg:px-8 lg:pb-8">{children}</main>
       </div>
       <MobileNav />
