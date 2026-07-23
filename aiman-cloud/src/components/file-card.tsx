@@ -107,8 +107,8 @@ export function FileCard({
   }
 
   return (
-    <div className="glass-card group relative flex flex-col overflow-hidden">
-      <div className="relative flex aspect-[4/3] items-center justify-center bg-black/[0.02] dark:bg-white/[0.03]">
+    <div className="glass-card group relative flex flex-col">
+      <div className="relative flex aspect-[4/3] items-center justify-center overflow-hidden rounded-t-2xl bg-black/[0.02] dark:bg-white/[0.03]">
         {isImage ? (
           <img
             src={`/api/files/${file.id}/download`}
