@@ -1,41 +1,67 @@
 import { promises as fs } from "fs";
 import path from "path";
 import crypto from "crypto";
-
-/**
- * Storage abstraction. Today this implements the "local" driver, which writes
- * uploaded files under LOCAL_UPLOAD_DIR (defaults to ./public/uploads).
- *
- * To switch to AWS S3, Cloudflare R2, or Supabase Storage:
- *  1. Set STORAGE_DRIVER=s3 in .env
- *  2. Install the AWS SDK: npm install @aws-sdk/client-s3
- *  3. Implement putObject/getObjectStream/deleteObject below using
- *     S3_ENDPOINT / S3_BUCKET / S3_ACCESS_KEY_ID / S3_SECRET_ACCESS_KEY / S3_REGION
- *     from .env — the rest of the app only calls the functions exported here,
- *     so no API routes need to change.
- */
+import {
+  S3Client,
+  PutObjectCommand,
+  GetObjectCommand,
+  DeleteObjectCommand,
+} from "@aws-sdk/client-s3";
 
 const UPLOAD_DIR = process.env.LOCAL_UPLOAD_DIR
   ? path.resolve(process.cwd(), process.env.LOCAL_UPLOAD_DIR)
   : path.resolve(process.cwd(), "public/uploads");
 
+function driver(): "local" | "s3" {
+  return (process.env.STORAGE_DRIVER as "local" | "s3") || "local";
+}
+
+let s3Client: S3Client | null = null;
+function getS3Client(): S3Client {
+  if (s3Client) return s3Client;
+  const endpoint = process.env.S3_ENDPOINT;
+  const accessKeyId = process.env.S3_ACCESS_KEY_ID;
+  const secretAccessKey = process.env.S3_SECRET_ACCESS_KEY;
+  if (!endpoint || !accessKeyId || !secretAccessKey) {
+    throw new Error(
+      "STORAGE_DRIVER=s3 but S3_ENDPOINT / S3_ACCESS_KEY_ID / S3_SECRET_ACCESS_KEY are not set in .env."
+    );
+  }
+  s3Client = new S3Client({
+    region: process.env.S3_REGION || "auto",
+    endpoint,
+    credentials: { accessKeyId, secretAccessKey },
+  });
+  return s3Client;
+}
+
+function bucket(): string {
+  const b = process.env.S3_BUCKET;
+  if (!b) throw new Error("STORAGE_DRIVER=s3 but S3_BUCKET is not set in .env.");
+  return b;
+}
+
 async function ensureDir(dir: string) {
   await fs.mkdir(dir, { recursive: true });
 }
 
-/** Build a collision-proof, owner-namespaced relative storage key. */
 export function buildStorageKey(ownerId: string, originalName: string): string {
   const ext = path.extname(originalName);
   const unique = crypto.randomBytes(16).toString("hex");
-  return path.join(ownerId, `${unique}${ext}`);
+  return `${ownerId}/${unique}${ext}`;
 }
 
-export async function saveBuffer(storageKey: string, buffer: Buffer): Promise<void> {
-  const driver = process.env.STORAGE_DRIVER || "local";
-  if (driver !== "local") {
-    throw new Error(
-      `Storage driver "${driver}" is not implemented yet. See src/lib/storage.ts for how to wire up S3/R2/Supabase.`
+export async function saveBuffer(storageKey: string, buffer: Buffer, mimeType?: string): Promise<void> {
+  if (driver() === "s3") {
+    await getS3Client().send(
+      new PutObjectCommand({
+        Bucket: bucket(),
+        Key: storageKey,
+        Body: buffer,
+        ContentType: mimeType || "application/octet-stream",
+      })
     );
+    return;
   }
   const fullPath = path.join(UPLOAD_DIR, storageKey);
   await ensureDir(path.dirname(fullPath));
@@ -43,11 +69,26 @@ export async function saveBuffer(storageKey: string, buffer: Buffer): Promise<vo
 }
 
 export async function readBuffer(storageKey: string): Promise<Buffer> {
+  if (driver() === "s3") {
+    const res = await getS3Client().send(new GetObjectCommand({ Bucket: bucket(), Key: storageKey }));
+    const stream = res.Body as NodeJS.ReadableStream;
+    const chunks: Buffer[] = [];
+    for await (const chunk of stream) {
+      chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
+    }
+    return Buffer.concat(chunks);
+  }
   const fullPath = path.join(UPLOAD_DIR, storageKey);
   return fs.readFile(fullPath);
 }
 
 export async function deleteObject(storageKey: string): Promise<void> {
+  if (driver() === "s3") {
+    await getS3Client()
+      .send(new DeleteObjectCommand({ Bucket: bucket(), Key: storageKey }))
+      .catch(() => {});
+    return;
+  }
   const fullPath = path.join(UPLOAD_DIR, storageKey);
   await fs.rm(fullPath, { force: true });
 }
