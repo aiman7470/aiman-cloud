@@ -14,7 +14,7 @@ interface SearchResult {
   notes: any[];
 }
 
-export function Topbar({ user }: { user: { name: string; email: string } }) {
+export function Topbar({ user }: { user: { name: string; email: string; hasAvatar?: boolean } }) {
   const router = useRouter();
   const { push } = useToast();
   const [query, setQuery] = useState("");
@@ -130,8 +130,12 @@ export function Topbar({ user }: { user: { name: string; email: string } }) {
           onClick={() => setMenuOpen((o) => !o)}
           className="flex items-center gap-2 rounded-full py-1 pl-1 pr-2 transition-colors hover:bg-black/5 dark:hover:bg-white/5"
         >
-          <div className="flex h-8 w-8 items-center justify-center rounded-full bg-gradient-to-br from-amber-500 to-teal-400 text-xs font-semibold text-midnight-950">
-            {initials(user.name)}
+          <div className="flex h-8 w-8 items-center justify-center overflow-hidden rounded-full bg-gradient-to-br from-amber-500 to-teal-400 text-xs font-semibold text-midnight-950">
+            {user.hasAvatar ? (
+              <img src="/api/user/avatar" alt="" className="h-full w-full object-cover" />
+            ) : (
+              initials(user.name)
+            )}
           </div>
           <ChevronDown size={14} className="hidden text-midnight-500/60 sm:block" />
         </button>
