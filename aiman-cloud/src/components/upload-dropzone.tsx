@@ -20,48 +20,54 @@ export function UploadDropzone({ folderId, onUploaded }: { folderId: string | nu
 
   const uploadFile = useCallback(
     (file: globalThis.File) => {
-      const id = Math.random().toString(36).slice(2);
-      setTasks((t) => [...t, { id, name: file.name, progress: 0, status: "uploading" }]);
+      return new Promise<void>((resolve) => {
+        const id = Math.random().toString(36).slice(2);
+        setTasks((t) => [...t, { id, name: file.name, progress: 0, status: "uploading" }]);
 
-      const form = new FormData();
-      form.append("file", file);
-      if (folderId) form.append("folderId", folderId);
+        const form = new FormData();
+        form.append("file", file);
+        if (folderId) form.append("folderId", folderId);
 
-      const xhr = new XMLHttpRequest();
-      xhr.open("POST", "/api/files");
-      xhr.upload.onprogress = (e) => {
-        if (e.lengthComputable) {
-          const pct = Math.round((e.loaded / e.total) * 100);
-          setTasks((t) => t.map((task) => (task.id === id ? { ...task, progress: pct } : task)));
-        }
-      };
-      xhr.onload = () => {
-        if (xhr.status >= 200 && xhr.status < 300) {
-          setTasks((t) => t.map((task) => (task.id === id ? { ...task, progress: 100, status: "done" } : task)));
-          onUploaded();
-          setTimeout(() => setTasks((t) => t.filter((task) => task.id !== id)), 2500);
-        } else {
-          setTasks((t) => t.map((task) => (task.id === id ? { ...task, status: "error" } : task)));
-          try {
-            const body = JSON.parse(xhr.responseText);
-            push(body.error || "Upload failed.", "error");
-          } catch {
-            push("Upload failed.", "error");
+        const xhr = new XMLHttpRequest();
+        xhr.open("POST", "/api/files");
+        xhr.upload.onprogress = (e) => {
+          if (e.lengthComputable) {
+            const pct = Math.round((e.loaded / e.total) * 100);
+            setTasks((t) => t.map((task) => (task.id === id ? { ...task, progress: pct } : task)));
           }
-        }
-      };
-      xhr.onerror = () => {
-        setTasks((t) => t.map((task) => (task.id === id ? { ...task, status: "error" } : task)));
-        push("Upload failed. Check your connection.", "error");
-      };
-      xhr.send(form);
+        };
+        xhr.onload = () => {
+          if (xhr.status >= 200 && xhr.status < 300) {
+            setTasks((t) => t.map((task) => (task.id === id ? { ...task, progress: 100, status: "done" } : task)));
+            onUploaded();
+            setTimeout(() => setTasks((t) => t.filter((task) => task.id !== id)), 2500);
+          } else {
+            setTasks((t) => t.map((task) => (task.id === id ? { ...task, status: "error" } : task)));
+            try {
+              const body = JSON.parse(xhr.responseText);
+              push(`${file.name}: ${body.error || "Upload failed."}`, "error");
+            } catch {
+              push(`${file.name}: Upload failed.`, "error");
+            }
+          }
+          resolve();
+        };
+        xhr.onerror = () => {
+          setTasks((t) => t.map((task) => (task.id === id ? { ...task, status: "error" } : task)));
+          push(`${file.name}: Upload failed. Check your connection.`, "error");
+          resolve();
+        };
+        xhr.send(form);
+      });
     },
     [folderId, onUploaded, push]
   );
 
-  function handleFiles(fileList: FileList | null) {
+  async function handleFiles(fileList: FileList | null) {
     if (!fileList) return;
-    Array.from(fileList).forEach(uploadFile);
+    for (const file of Array.from(fileList)) {
+      await uploadFile(file);
+    }
   }
 
   return (
