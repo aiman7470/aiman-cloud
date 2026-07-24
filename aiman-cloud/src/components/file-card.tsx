@@ -1,4 +1,4 @@
- "use client";
+"use client";
 
 import { useState, useRef, useEffect } from "react";
 import { createPortal } from "react-dom";
@@ -235,7 +235,7 @@ function FileMenu({
           >
             {!file.isTrashed ? (
               <>
-                
+                <a
                   href={`/api/files/${file.id}/download`}
                   download
                   onClick={(e) => {
