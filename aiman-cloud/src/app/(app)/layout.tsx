@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { Sidebar } from "@/components/sidebar";
 import { Topbar } from "@/components/topbar";
 import { MobileNav } from "@/components/mobile-nav";
+import { SessionRefresher } from "@/components/session-refresher";
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   const user = await getCurrentUserFromCookies();
@@ -17,6 +18,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
 
   return (
     <div className="flex min-h-screen">
+      <SessionRefresher />
       <Sidebar storageUsed={storageUsed} storageQuota={Number(user.storageQuota)} />
       <div className="flex min-h-screen flex-1 flex-col">
         <Topbar user={{ name: user.name, email: user.email, hasAvatar: Boolean(user.avatarUrl) }} />
